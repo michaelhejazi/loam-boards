@@ -19,6 +19,14 @@ touches:
   memory: none
   server: false
 contributes:
+  thread.file:
+    - label: board
+      suffix: " — board"
+      initial: "# {title} — board"
+  schedule.kind:
+    - name: expire
+      calendar: "*-*-* *:23:00"
+      run: python3 expiry.py
   agent.prompt:
     - file: agent.md
 ---
@@ -26,4 +34,4 @@ Keep shared notes beside a conversation. Open **Board** in its header. Add a not
 
 ## Technical details
 
-The page reads and saves a thread’s Markdown using the revision returned when it opened the file. Conflicting edits stay in the tab for recovery. This development version requires Loam’s existing thread storage and its new header and Markdown editing slots.
+The page reads and saves a thread’s Markdown using the revision returned when it opened the file. Conflicting edits stay in the tab for recovery. Requires a Loam host with the thread.file contribution and header and Markdown editing slots.

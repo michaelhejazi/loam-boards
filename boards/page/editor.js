@@ -50,7 +50,8 @@ export function createEditor({ ui, data, thread, onOpen, onClose }) {
   function storedBoard(id) {
     try { return st.boardDrafts.get(id) ?? JSON.parse(sessionStorage.getItem('loam.board.draft.' + id)) } catch { return st.boardDrafts.get(id) }
   }
-  const writeBoard = async (o, text, revision) => data.boards.put(o.thread.id, { markdown: text, base_revision: revision })
+  const fileURL = o => `/threads/${encodeURIComponent(o.thread.id)}/files/boards`
+  const writeBoard = async (o, text, revision) => data.request('PUT', fileURL(o), { markdown: text, base_revision: revision })
   function inputBoard(value) {
     const o = st.open
     if (!o?.editing) return
@@ -80,7 +81,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose }) {
     if (o.boardRefreshing) return
     o.boardRefreshing = true; redraw()
     try {
-      const body = await data.boards.get(o.thread.id)
+      const body = await data.request('GET', fileURL(o))
       if (st.open === o && !o.editing && !o.boardBusy) {
         if (body.revision !== o.board.revision) o.boardMenu = null
         o.board = body; o.boardUnavailable = false; o.boardError = ''
