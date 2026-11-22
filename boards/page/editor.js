@@ -3,7 +3,7 @@ import { cardText, applyCardText, setBoardExpiry, recoverBoard } from './documen
 import { boardDrag } from './drag.js'
 import { boardLines, boardSections, boardItemEnd, moveBoardItem, reflowBoardQuotes, editBoard, markBoardSeen, addBoardItem } from './items.js'
 
-export function createEditor({ ui, data, thread, onOpen, onClose }) {
+export function createEditor({ ui, data, thread, onOpen, onClose, dismiss, backButton }) {
   const { h, kept, icon, menuSurface, panelHeader, selectionMark, markdown: renderText, host } = ui
   const redraw = () => host.schedule()
   const dom = document
@@ -177,7 +177,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose }) {
     }).filter(s => s.key !== 'top' || s.group || all.length === 1 || s.blocks.some(b => b.item || b.text.trim()))
     const lists = sections.filter(s => !s.group)
     const count = lines.filter(l => l.unseen).length
-    const closeBoard = close
+    const closeBoard = dismiss
     const busy = o.boardBusy || o.boardRefreshing || !o.board.revision || Boolean(o.recovery)
     const closeMenu = () => { o.boardMenu = null; o.menuPage = null; redraw() }
     const dateLabel = day => new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric' }).format(new Date(day + 'T00:00:00Z'))
@@ -240,7 +240,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose }) {
         h('div', { class: 'md tt-description-copy' }, ...renderText(reflowBoardQuotes(block.text))))
     }
     if (o.loading || o.refreshing || o.readFailed || o.boardUnavailable) return h('aside', { class: 'tt-board', 'aria-label': 'Thread board', onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeBoard() } } },
-      panelHeader({ title: 'Board', actions: [round('Close board', icon.close(14), closeBoard)], props: { class: 'chat-head plain tt-board-head' } }),
+      panelHeader({ title: 'Board', back: backButton?.(), actions: [round('Close board', icon.close(14), closeBoard)], props: { class: 'chat-head plain tt-board-head' } }),
       h('div', { class: 'tt-empty', role: 'status' }, o.loading || o.refreshing ? 'Opening your board…' : 'The board could not be loaded.',
         o.boardError ? h('p', { role: 'alert', text: o.boardError }) : null,
         o.readFailed || o.boardUnavailable ? button('Try again', () => refreshBoard(o)) : null))
@@ -264,7 +264,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose }) {
     return h('aside', { class: 'tt-board', 'aria-label': 'Thread board', onkeydown: e => {
       if (e.key === 'Escape') { e.stopPropagation(); if (o.boardMenu != null) closeMenu(); else closeBoard() }
     } },
-      panelHeader({ title: 'Board', actions: [
+      panelHeader({ title: 'Board', back: backButton?.(), actions: [
         o.board.path ? button([host.panels.available() ? icon.panelRight(15) : icon.folder(15), 'Open in Files'],
           () => {
             finishBoardEdit()
@@ -290,6 +290,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose }) {
   }
 
   function open(event) {
+    if (st.open.boardOpen) return
     onOpen()
     trigger = event?.currentTarget
     st.open.boardOpen = true
@@ -317,7 +318,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose }) {
         o.settleBoardItem = null
       }
     })
-    return [h('button', { class: 'tt-board-scrim', title: 'Dismiss board panel', tabindex: '-1', onclick: close }), panel]
+    return [h('button', { class: 'tt-board-scrim', title: 'Dismiss board panel', tabindex: '-1', onclick: dismiss }), panel]
   }
-  return { open, view, close, dispose: () => drag.cancel() }
+  return { open, view, close, isOpen: () => st.open.boardOpen, dispose: () => drag.cancel() }
 }
