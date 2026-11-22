@@ -1,7 +1,7 @@
 ---
 id: boards
 name: Boards
-version: 0.1.0
+version: 0.1.1
 author: Michael Hejazi
 api: 0
 kind: [extension]
@@ -15,9 +15,9 @@ screenshots:
     src_dark: assets/general-cards-390-dark.webp
     caption: Add and check off notes on your phone
 touches:
-  record: read
+  record: write
   memory: none
-  server: false
+  server: true
 contributes:
   thread.file:
     - label: board
@@ -37,4 +37,4 @@ Keep shared notes beside a conversation. Open **Board** in its header. Add a not
 
 ## Technical details
 
-The page reads and saves a thread’s Markdown using the revision returned when it opened the file. Conflicting edits stay in the tab for recovery. Requires a Loam host with the thread.file contribution and header and Markdown editing slots.
+The page reads and saves a thread’s Markdown using the revision returned when it opened the file. Conflicting edits stay in the tab for recovery. Scheduled cleanup scripts (`expiry.py`) run on the server to remove expired items and aged dated lines from the General board. Requires Loam 0.2.28 or later (which provides the `thread.file` contribution, thread header controls, and Markdown editing slots).
