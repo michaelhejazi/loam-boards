@@ -1,0 +1,1 @@
+A thread’s board is a Markdown file. Keep it short. Put shared notes and next steps under a relevant heading. Add an item as `- [ ] text <!-- YourName · new · until YYYY-MM-DD -->`. Use `until` only for a time-bound item. Leave `new` until the owner marks the item seen. Open the board from the thread header or edit its file directly.
