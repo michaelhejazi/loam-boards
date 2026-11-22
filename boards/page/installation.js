@@ -8,6 +8,6 @@ export function setGeneralPath(path) { generalPath = path }
 
 export function installation() {
   const config = globalThis.LOAM_INSTALLATION ?? {}
-  const inbox = config.inbox || 'Inbox'
-  return { boards: inbox + '/boards', generalBoard: generalPath ?? inbox + '/boards/general.md' }
+  const boards = config.boards || 'Boards'
+  return { boards, generalBoard: generalPath ?? boards + '/general.md' }
 }

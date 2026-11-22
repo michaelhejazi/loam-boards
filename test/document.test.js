@@ -8,7 +8,7 @@ const source = '---\r\nlabels: [sample]\r\n---\r\n# Plans\r\n\r\n## Next\n* [ ] 
 test('Cards and Files preserve source bytes on a no-op and preserve metadata on an edit', () => {
   const item = boardLines(source).find(line => line.item)
   assert.equal(applyCardText(source,item.index,cardText(item.text)), source)
-  const projection = boardProjection('vault','Inbox/boards/Plans.md')
+  const projection = boardProjection('vault','Boards/Plans.md')
   assert.equal(projection.write(source,projection.show(source)), source)
   assert.equal(applyCardText(source,item.index,'Read the notes'),source.replace('the draft','the notes'))
   assert.equal(applyDocText(source,docText(source).replace('draft','notes')),source.replace('draft','notes'))
