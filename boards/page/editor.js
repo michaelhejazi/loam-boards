@@ -324,5 +324,6 @@ export function createEditor({ ui, data, thread, onOpen, onClose, dismiss, backB
   function refresh() {
     if (!st.open.editing && !st.open.boardBusy) refreshBoard(st.open)
   }
-  return { open, view, close, refresh, newCount: () => boardLines(st.open.board.markdown).filter(l => l.unseen).length, isOpen: () => st.open.boardOpen, dispose: () => drag.cancel() }
+  const dirty = () => Boolean(storedBoard(thread.id) || quick.value.trim() || st.open.boardBusy)
+  return { open, view, close, refresh, dirty, newCount: () => boardLines(st.open.board.markdown).filter(l => l.unseen).length, isOpen: () => st.open.boardOpen, dispose: () => drag.cancel() }
 }

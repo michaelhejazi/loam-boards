@@ -52,7 +52,7 @@ export async function activate(loam) {
       'aria-expanded': String(context.view === 'board'), onclick: open }, icon.list(18),
       count ? h('span', { class: 'navdot', 'aria-label': `${count} new board items` }) : null)
   } })
-  loam.places.thread.header.action.add({ id: 'cards', view: 'board', render(context) {
+  loam.places.thread.header.action.add({ id: 'cards', view: 'board', dirty: ({ state }) => editors.get(state)?.dirty(), render(context) {
     const entry = context.view === 'board' ? editor(context) : editors.get(context.state)
     if (!entry) return null
     if (context.view === 'board' && !entry.isOpen()) entry.open()
