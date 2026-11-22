@@ -79,7 +79,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose, dismiss, backB
   }
   async function refreshBoard(o) {
     if (o.boardRefreshing) return
-    o.boardRefreshing = true; redraw()
+    o.boardRefreshing = true
     try {
       const body = await data.request('GET', fileURL(o))
       if (st.open === o && !o.editing && !o.boardBusy) {
@@ -302,6 +302,7 @@ export function createEditor({ ui, data, thread, onOpen, onClose, dismiss, backB
     if (!st.open.boardOpen) return null
     const panel = board()
     panel.classList.add('personal-board')
+    panel.dataset.boardsThread = thread.id
     panel.setAttribute('role', 'dialog')
     requestAnimationFrame(() => {
       const o = st.open
@@ -320,5 +321,8 @@ export function createEditor({ ui, data, thread, onOpen, onClose, dismiss, backB
     })
     return [h('button', { class: 'tt-board-scrim', title: 'Dismiss board panel', tabindex: '-1', onclick: dismiss }), panel]
   }
-  return { open, view, close, isOpen: () => st.open.boardOpen, dispose: () => drag.cancel() }
+  function refresh() {
+    if (!st.open.editing && !st.open.boardBusy) refreshBoard(st.open)
+  }
+  return { open, view, close, refresh, newCount: () => boardLines(st.open.board.markdown).filter(l => l.unseen).length, isOpen: () => st.open.boardOpen, dispose: () => drag.cancel() }
 }

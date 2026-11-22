@@ -3,8 +3,11 @@ export function setOwner(value) { currentOwner = value }
 export const owner = () => currentOwner
 export const isOwner = id => currentOwner.accepts.includes(id)
 
+let generalPath
+export function setGeneralPath(path) { generalPath = path }
+
 export function installation() {
   const config = globalThis.LOAM_INSTALLATION ?? {}
   const inbox = config.inbox || 'Inbox'
-  return { boards: config.boards ?? inbox + '/boards', generalBoard: config.generalBoard ?? inbox + '/boards/general.md' }
+  return { boards: inbox + '/boards', generalBoard: generalPath ?? inbox + '/boards/general.md' }
 }

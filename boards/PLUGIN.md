@@ -27,6 +27,9 @@ contributes:
     - name: expire
       calendar: "*-*-* *:23:00"
       run: python3 expiry.py
+    - name: general-expiry
+      calendar: "*-*-* 08:17:00 UTC"
+      run: python3 expiry.py --general
   agent.prompt:
     - file: agent.md
 ---
