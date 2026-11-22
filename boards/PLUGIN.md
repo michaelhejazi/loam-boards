@@ -1,11 +1,12 @@
 ---
 id: boards
 name: Boards
-version: 0.1.1
+version: 0.1.2
 author: Michael Hejazi
 api: 0
 kind: [extension]
 places: [thread.header.action, files.viewer]
+icon: assets/icon.webp
 description: Keep notes and next steps beside a conversation and edit them as cards or Markdown.
 screenshots:
   - src: assets/general-cards-1440-light.webp
