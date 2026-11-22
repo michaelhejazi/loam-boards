@@ -15,8 +15,10 @@ export function createEditor({ ui, data, thread, onOpen, onClose, dismiss, backB
   let trigger = null
   function openBoardFile(path) {
     const item = { kind: 'file', root: 'vault', path, mode: 'edit' }
-    if (host.panels.available()) host.panels.openSide(item)
-    else host.panels.openMain(item)
+    if (host.panels.available()) {
+      dismiss({ traverse: false })
+      host.panels.openSide(item)
+    } else host.panels.openMain({ ...item, returnThread: true })
   }
   function close() {
     finishBoardEdit()

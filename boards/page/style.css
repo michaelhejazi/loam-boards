@@ -77,3 +77,13 @@
   .tt-board,.tt-board-scrim { animation:none; }
   .tt-board-item.removing,.tt-list-add { transition:none; }
 }
+
+:root[data-look="foundry"] .personal-board { border-radius:var(--radius-xl); }
+:root[data-look="foundry"] .personal-board .tt-board-item { border-radius:var(--radius-md); }
+
+[data-boards-thread].iconbtn { position:relative; }
+[data-boards-thread].iconbtn .navdot { position:absolute; right:5px; top:5px; }
+@media (max-width:1099px) {
+  .personal-board .tt-item-actions > .iconbtn { height:44px; }
+  .personal-board .tt-newtag { align-items:flex-start; }
+}

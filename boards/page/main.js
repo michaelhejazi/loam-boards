@@ -32,7 +32,7 @@ export async function activate(loam) {
           active.add(entry)
         },
         onClose() { active.delete(entry) },
-        dismiss: () => context.selectView(null), backButton: context.backButton,
+        dismiss: options => context.selectView(null, options), backButton: context.backButton,
       })
       editors.set(state, entry)
     }
