@@ -1,5 +1,8 @@
 .tt-board-scrim { touch-action:none; position:absolute; inset:0; z-index:7; border:0; background:var(--scrim); animation:loamFadeIn 160ms ease-out; }
 .tt-board { position:absolute; z-index:8; right:12px; top:12px; bottom:12px; width:min(460px,calc(100% - 24px)); display:flex; flex-direction:column; background:var(--paper-pane); border-radius:28px; overflow:hidden; box-shadow:0 12px 40px var(--shadow-ink); animation:loamGrow 180ms cubic-bezier(.2,.8,.2,1); }
+.tt-board-modal-scrim { position:fixed; z-index:11; }
+.tt-board-modal-dialog { position:fixed; inset:0; z-index:12; display:flex; align-items:center; justify-content:center; padding:24px; pointer-events:none; }
+.tt-board.tt-board-modal { position:relative; inset:auto; z-index:auto; pointer-events:auto; width:min(540px,100%); height:auto; min-height:min(460px,100%); max-height:min(740px,calc(100% - 16px)); box-shadow:0 20px 60px var(--shadow-ink); }
 .tt-board-files { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 9px; border:1px solid var(--paper-rule); border-radius:999px; color:var(--paper-ink-2); background:transparent; font:600 12px var(--font-body); white-space:nowrap; cursor:pointer; }
 .tt-board-files:hover { color:var(--paper-ink); background:var(--paper-card); }
 .tt-board-head { padding:16px; }
@@ -71,6 +74,8 @@
 
 @media (max-width:1099px) {
   .tt-board { inset:8px; width:auto; }
+  .tt-board-modal-dialog { padding:8px; align-items:stretch; }
+  .tt-board.tt-board-modal { inset:auto; width:100%; height:100%; min-height:0; max-height:none; }
   .tt-list-add,.tt-description > summary,.tt-durations .pillbtn,.tt-board-add-foot > button { min-height:44px; min-width:44px; }
 }
 @media (prefers-reduced-motion:reduce) {
@@ -81,8 +86,10 @@
 :root[data-look="foundry"] .personal-board { border-radius:var(--radius-xl); }
 :root[data-look="foundry"] .personal-board .tt-board-item { border-radius:var(--radius-md); }
 
-[data-boards-thread].iconbtn { position:relative; }
-[data-boards-thread].iconbtn .navdot { position:absolute; right:5px; top:5px; }
+[data-boards-thread].iconbtn,
+[data-boards-chat].iconbtn { position:relative; }
+[data-boards-thread].iconbtn .navdot,
+[data-boards-chat].iconbtn .navdot { position:absolute; right:5px; top:5px; }
 @media (max-width:1099px) {
   .personal-board .tt-item-actions > .iconbtn { height:44px; }
   .personal-board .tt-newtag { align-items:flex-start; }

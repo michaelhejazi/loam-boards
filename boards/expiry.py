@@ -5,12 +5,14 @@ import hashlib
 import json
 import os
 import re
+import stat
 import sys
 from pathlib import Path
 from datetime import date, timedelta
 
 UNTIL_RE = re.compile(r"\buntil (\d{4}-\d{2}-\d{2})\b")
 ITEM_META_RE = re.compile(r"<!--\s*(.*?)\s*-->\s*$")
+CHAT_BOARD_NAME = "Chat board.md"
 
 
 def item_meta(line: str) -> list[str]:
@@ -71,6 +73,26 @@ def aged_lines(markdown, today, preserved):
     return "".join(kept), gone
 
 
+def sweep_file(path: Path, today: date, *, dry_run: bool = False, revisions=None) -> int:
+    """Sweep explicit ``until`` dates from a standalone board file (such as the
+    Chat board), using revision-checked atomic replacement when writing."""
+    try:
+        if not stat.S_ISREG(path.lstat().st_mode):
+            return 0
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        return 0
+    text, gone = sweep_board(raw.decode("utf-8"), today)
+    if gone and not dry_run:
+        if revisions is None:
+            import loam_file_revision as revisions
+        try:
+            revisions.replace_text(path, text, revisions.revision(raw))
+        except (revisions.RevisionConflict, FileNotFoundError):
+            return 0
+    return len(gone)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
@@ -82,16 +104,20 @@ def main():
         if history.exists():
             preserved.update(json.loads(history.read_text()))
     sys.path.insert(0, os.environ["LOAM_LIB"])
+    import loam_file_revision as revisions
     import loam_thread_files as files
     import loam_threads
+    today = date.today()
     removed = 0
+    seen_paths = set()
     for tid, snapshot in files.existing_documents("boards"):
+        seen_paths.add(snapshot["path"])
         if args.general:
             if tid != "general":
                 continue
-            text, gone = aged_lines(snapshot["markdown"], date.today(), preserved)
+            text, gone = aged_lines(snapshot["markdown"], today, preserved)
         else:
-            text, gone = sweep_board(snapshot["markdown"], date.today())
+            text, gone = sweep_board(snapshot["markdown"], today)
         if gone and not args.dry_run:
             try:
                 files.document("boards", tid, {"base_revision": snapshot["revision"], "markdown": text})
@@ -100,6 +126,11 @@ def main():
                     continue
                 raise
         removed += len(gone)
+    if not args.general:
+        rel = f"{files._boards_folder()}/{CHAT_BOARD_NAME}"
+        if rel not in seen_paths:
+            chat_path = files.threads.VAULT / rel
+            removed += sweep_file(chat_path, today, dry_run=args.dry_run, revisions=revisions)
     print(f"{removed} expired lines")
     return 0
 

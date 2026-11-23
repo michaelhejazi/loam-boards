@@ -8,6 +8,11 @@ export function setGeneralPath(path) { generalPath = path }
 
 export function installation() {
   const config = globalThis.LOAM_INSTALLATION ?? {}
-  const boards = config.boards || 'Boards'
-  return { boards, generalBoard: generalPath ?? boards + '/general.md' }
+  const inferred = generalPath && generalPath.includes('/') ? generalPath.slice(0, generalPath.lastIndexOf('/')) : ''
+  const boards = config.boards || inferred || 'Boards'
+  return {
+    boards,
+    generalBoard: generalPath ?? boards + '/general.md',
+    chatBoard: boards + '/Chat board.md',
+  }
 }

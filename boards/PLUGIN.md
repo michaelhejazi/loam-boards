@@ -1,13 +1,13 @@
 ---
 id: boards
 name: Boards
-version: 0.1.4
+version: 0.2.0
 author: Michael Hejazi
 api: 0
 kind: [extension]
-places: [thread.header.action, files.viewer]
+places: [rail.action, thread.list.action, thread.header.action, app.overlay, files.viewer]
 icon: assets/icon.webp
-description: Keep notes and next steps beside a conversation and edit them as cards or Markdown.
+description: Keep a board beside each thread, one shared Chat board for quick thoughts, or both — as cards or Markdown.
 screenshots:
   - src: assets/general-cards-1440-light.webp
     src_dark: assets/general-cards-1440-dark.webp
@@ -20,6 +20,24 @@ touches:
   memory: none
   server: true
 contributes:
+  settings.entry:
+    - key: thread_boards
+      label: Thread boards
+      note: Keep a board in each thread’s header. Turning this off hides the button and keeps your board files untouched.
+      choices: ["on", "off"]
+      default: "on"
+      control: switch
+    - key: chat_board
+      label: Chat board
+      note: Keep one quick-capture board reachable from anywhere in Chats.
+      choices: ["on", "off"]
+      default: "on"
+      control: switch
+  vault.folder:
+    - path: Boards
+      when:
+        setting: chat_board
+        in: ["on"]
   thread.file:
     - label: board
       suffix: " — board"
@@ -33,9 +51,24 @@ contributes:
       run: python3 expiry.py --general
   agent.prompt:
     - file: agent.md
+      when:
+        setting: thread_boards
+        in: ["on"]
+    - file: agent-chat.md
+      when:
+        setting: chat_board
+        in: ["on"]
 ---
-Keep shared notes beside a conversation. Open **Board** in its header. Add a note under a heading, check it off, move it to another list, or give it an expiry date. Choose **Open in Files** to edit the same Markdown.
+Keep notes and next steps as cards or Markdown — beside each thread, on one shared **Chat board** for quick thoughts, or both. Add a note under a heading, check it off, move it to another list, or give it an expiry date. Choose **Open in Files** to edit the same Markdown.
+
+## What you can do
+
+- **Chat board:** Open one shared board from the side rail on desktop or the top bar on phone — from the threads list or inside any thread — and close it right back to where you were.
+- **Thread boards:** Open **Board** in any thread’s header for notes tied to that conversation.
+- **Your choice:** Turn **Thread boards** and **Chat board** on or off independently below. Turning either off hides its controls and leaves every board file untouched.
+
+---
 
 ## Technical details
 
-The page reads and saves a thread’s Markdown using the revision returned when it opened the file. Conflicting edits stay in the tab for recovery. Scheduled cleanup scripts (`expiry.py`) run on the server to remove expired items and aged dated lines from the General board. Requires Loam 0.2.28 or later (which provides the `thread.file` contribution, thread header controls, and Markdown editing slots).
+Thread boards read and save each thread’s Markdown using the revision returned when opened. The Chat board is an ordinary vault Markdown file at `Boards/Chat board.md`, created on first open with `# Chat board` and standard vault frontmatter, and read/saved with revision checks through Files. Conflicting edits stay in the tab for recovery. Scheduled cleanup scripts (`expiry.py`) run on the server to remove expired items from thread boards and the Chat board, and aged dated lines from the General board. Requires Loam 0.2.33 or later (for `rail.action`, `thread.list.action`, settings switches, and conditional `agent.prompt`, alongside `thread.file`, thread header controls, and Markdown editing slots).
