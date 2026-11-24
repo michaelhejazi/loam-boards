@@ -65,7 +65,11 @@ function makeHarness({ settings = { thread_boards: 'on', chat_board: 'on' }, cha
   let hasFolder = folderExists
   const calls = []
   let scheduled = 0
-  const sheetState = { sheet: null }
+  const sheetState = {
+    sheet: null,
+    agents: { list: [{ id: 'scout', name: 'Scout' }, { id: 'oldbot', name: 'OldBot', archived: true }] },
+  }
+  const commandRuns = []
 
   const host = {
     state: sheetState,
@@ -98,6 +102,7 @@ function makeHarness({ settings = { thread_boards: 'on', chat_board: 'on' }, cha
     round: (label, glyph, onclick, props = {}) => fakeNode('button', { ...props, 'aria-label': label, onclick }, glyph),
     panelHeader: ({ title, actions = [] }) => fakeNode('header', {}, fakeNode('h2', {}, title), ...actions),
     settingsRow: ({ title, onclick }) => fakeNode('button', { class: 'setrow', onclick }, title),
+    selectionMark: ({ chosen }) => fakeNode('span', { class: `qmark${chosen ? ' on' : ''}` }),
     menuSurface: node => node,
     markdown: text => [text],
     styles: { add: href => calls.push(['style', href]) },
@@ -140,6 +145,12 @@ function makeHarness({ settings = { thread_boards: 'on', chat_board: 'on' }, cha
     ui,
     data,
     events,
+    commands: {
+      run(id, context) {
+        commandRuns.push([id, context])
+        if (id === 'chat.draft' && host.state.sheet) host.closeSheet()
+      },
+    },
     places: {
       rail: { action: makePlace('rail.action') },
       thread: { list: { action: makePlace('thread.list.action') }, header: { action: makePlace('thread.header.action') } },
@@ -152,9 +163,11 @@ function makeHarness({ settings = { thread_boards: 'on', chat_board: 'on' }, cha
     loam,
     places,
     calls,
+    commandRuns,
     host,
     get scheduled() { return scheduled },
     get fileState() { return fileState },
+    setFileState(next) { fileState = next },
     cleanup() {
       globalThis.document = prevDoc
       globalThis.requestAnimationFrame = prevRaf
@@ -249,6 +262,194 @@ test('opening Chat board lazily creates Boards/Chat board.md (and folder if need
     // Switching Chat board off closes the open sheet automatically.
     h.loam.events.emit('plugin.settings.changed', { id: 'boards', values: { thread_boards: 'on', chat_board: 'off' } })
     assert.equal(h.host.state.sheet, null)
+  } finally {
+    dispose()
+    h.cleanup()
+  }
+})
+
+function walkNodes(node, pred, out = []) {
+  if (!node) return out
+  if (Array.isArray(node)) { for (const child of node) walkNodes(child, pred, out); return out }
+  if (typeof node === 'object') {
+    if (pred(node)) out.push(node)
+    for (const child of node.children ?? []) walkNodes(child, pred, out)
+  }
+  return out
+}
+
+test('card menu puts Start a thread first, toggles checkboxes, and composer checkbox defaults off', async () => {
+  const h = makeHarness({ settings: { thread_boards: 'on', chat_board: 'on' }, chatBoardExists: true })
+  h.setFileState({
+    text: '---\ncreated_by: owner\n---\n# Chat board\n\n## Ideas\n- 2026-11-24 · Plain note with [[Link]] <!-- scout · new -->\n- [x] 2026-11-24 · Checked task <!-- Sam -->\n',
+    revision: 'rev-1',
+  })
+  const dispose = await activate(h.loam)
+  try {
+    await new Promise(r => setTimeout(r, 10))
+    const rail = h.places['rail.action'][0]
+    const overlay = h.places['app.overlay'][0]
+    rail.onclick({})
+    await new Promise(r => setTimeout(r, 10))
+
+    // Open composer in Ideas -> checkbox toggle is off by default.
+    let tree = overlay.render({ sheet: h.host.state.sheet })
+    const addBtn = walkNodes(tree, n => n.tag === 'button' && n.attrs['data-add-section'] === 'heading:Ideas:0')[0]
+    addBtn.attrs.onclick()
+    tree = overlay.render({ sheet: h.host.state.sheet })
+    const toggle = walkNodes(tree, n => n.tag === 'button' && n.attrs['data-boards-checkbox-toggle'] === 'true')[0]
+    assert.equal(toggle.attrs['aria-pressed'], 'false')
+
+    // Open actions menu on plain card -> Start a thread is first, Add checkbox is second.
+    const menuBtns = walkNodes(tree, n => n.tag === 'button' && String(n.attrs.class ?? '').includes('tt-card-menu'))
+    assert.equal(menuBtns.length, 2)
+    menuBtns[0].attrs.onclick()
+    tree = overlay.render({ sheet: h.host.state.sheet })
+    const menuItems = walkNodes(tree, n => n.tag === 'div' && n.attrs.class === 'tt-item-menu')[0].children
+    assert.equal(menuItems[0].children[0], 'Start a thread')
+    assert.equal(menuItems[1].children[0], 'Add checkbox')
+
+    // Clicking Start a thread on a persona's card passes that persona's id as agent and closes the sheet.
+    menuItems[0].attrs.onclick()
+    assert.equal(h.commandRuns.length, 1)
+    assert.equal(h.commandRuns[0][0], 'chat.draft')
+    assert.equal(h.commandRuns[0][1].agent, 'scout')
+    assert.equal(h.commandRuns[0][1].text, '> Plain note with [[Link]]\n> — Scout · Nov 24, 2026 · Chat board · Ideas\n\n')
+    assert.equal(h.host.state.sheet, null)
+
+    // Re-open Chat board and test Remove checkbox on checked card.
+    rail.onclick({})
+    await new Promise(r => setTimeout(r, 10))
+    tree = overlay.render({ sheet: h.host.state.sheet })
+    walkNodes(tree, n => n.tag === 'button' && String(n.attrs.class ?? '').includes('tt-card-menu'))[1].attrs.onclick()
+    tree = overlay.render({ sheet: h.host.state.sheet })
+    const checkedMenu = walkNodes(tree, n => n.tag === 'div' && n.attrs.class === 'tt-item-menu')[0].children
+    assert.equal(checkedMenu[1].children[0], 'Remove checkbox')
+    checkedMenu[1].attrs.onclick()
+    await new Promise(r => setTimeout(r, 10))
+    assert.ok(h.fileState.text.includes('- 2026-11-24 · Checked task <!-- Sam -->'))
+    assert.ok(!h.fileState.text.includes('- [x]'))
+  } finally {
+    dispose()
+    h.cleanup()
+  }
+})
+
+test('thread board card Start a thread quotes thread board name and section and closes cleanly', async () => {
+  const h = makeHarness({ settings: { thread_boards: 'on', chat_board: 'on' }, chatBoardExists: false })
+  const origReq = h.loam.data.request
+  h.loam.data.request = async (method, path, body) => {
+    if (method === 'GET' && path === '/threads/t-roadmap/files/boards') {
+      return {
+        path: 'Boards/Roadmap — board.md',
+        markdown: '# Roadmap — board\n\n## Decisions\n- 2026-11-24 · Ship milestone in January · [[Notes/Plan|plan notes]] <!-- scout -->\n',
+        revision: 'rev-thread-1',
+      }
+    }
+    return origReq(method, path, body)
+  }
+  const dispose = await activate(h.loam)
+  try {
+    await new Promise(r => setTimeout(r, 10))
+    const cardsPlace = h.places['thread.header.action'].find(e => e.id === 'cards')
+    const state = { thread: { id: 't-roadmap', title: 'Roadmap' }, creating: false }
+    let selectedView = 'board'
+    const ctx = {
+      thread: state.thread,
+      state,
+      view: 'board',
+      panel: 'main',
+      selectView: v => { selectedView = v },
+    }
+    cardsPlace.render(ctx)
+    await new Promise(r => setTimeout(r, 10))
+    let tree = cardsPlace.render(ctx)
+    const menuBtn = walkNodes(tree, n => n.tag === 'button' && String(n.attrs.class ?? '').includes('tt-card-menu'))[0]
+    menuBtn.attrs.onclick()
+    tree = cardsPlace.render(ctx)
+    const menuItems = walkNodes(tree, n => n.tag === 'div' && n.attrs.class === 'tt-item-menu')[0].children
+    assert.equal(menuItems[0].children[0], 'Start a thread')
+    menuItems[0].attrs.onclick()
+    assert.equal(h.commandRuns.length, 1)
+    assert.equal(h.commandRuns[0][0], 'chat.draft')
+    assert.equal(h.commandRuns[0][1].agent, 'scout')
+    assert.equal(h.commandRuns[0][1].text, '> Ship milestone in January · [[Notes/Plan|plan notes]]\n> — Scout · Nov 24, 2026 · Roadmap — board · Decisions\n\n')
+    assert.equal(selectedView, 'board')
+  } finally {
+    dispose()
+    h.cleanup()
+  }
+})
+
+test('Start a thread resolves persona display names, omits agent for owner, unknown, archived, and authorless cards', async () => {
+  const h = makeHarness({ settings: { thread_boards: 'on', chat_board: 'on' }, chatBoardExists: true })
+  h.setFileState({
+    text: [
+      '# Chat board',
+      '',
+      '## Notes',
+      '- 2026-11-24 · Display-named persona card <!-- Scout · new -->',
+      '- 2026-11-24 · Owner card <!-- Sam -->',
+      '- 2026-11-24 · Non-persona system card <!-- Loam -->',
+      '- 2026-11-24 · Archived persona card <!-- OldBot -->',
+      '- 2026-11-24 · Authorless card',
+      '',
+    ].join('\n'),
+    revision: 'rev-authors',
+  })
+  const dispose = await activate(h.loam)
+  try {
+    await new Promise(r => setTimeout(r, 10))
+    const rail = h.places['rail.action'][0]
+    const overlay = h.places['app.overlay'][0]
+    for (let i = 0; i < 5; i++) {
+      rail.onclick({})
+      await new Promise(r => setTimeout(r, 10))
+      let tree = overlay.render({ sheet: h.host.state.sheet })
+      const menuBtns = walkNodes(tree, n => n.tag === 'button' && String(n.attrs.class ?? '').includes('tt-card-menu'))
+      menuBtns[i].attrs.onclick()
+      tree = overlay.render({ sheet: h.host.state.sheet })
+      const menuItems = walkNodes(tree, n => n.tag === 'div' && n.attrs.class === 'tt-item-menu')[0].children
+      menuItems[0].attrs.onclick()
+    }
+    assert.equal(h.commandRuns.length, 5)
+    assert.equal(h.commandRuns[0][1].agent, 'scout')
+    assert.equal('agent' in h.commandRuns[1][1], false)
+    assert.equal('agent' in h.commandRuns[2][1], false)
+    assert.equal('agent' in h.commandRuns[3][1], false)
+    assert.equal('agent' in h.commandRuns[4][1], false)
+  } finally {
+    dispose()
+    h.cleanup()
+  }
+})
+
+test('Start a thread surfaces a clear version message if an older host rejects an agentless chat.draft', async () => {
+  const h = makeHarness({ settings: { thread_boards: 'on', chat_board: 'on' }, chatBoardExists: true })
+  h.setFileState({
+    text: '# Chat board\n\n## Notes\n- 2026-11-24 · Owner card <!-- Sam -->\n',
+    revision: 'rev-old-host',
+  })
+  h.loam.commands.run = (_id, payload) => {
+    if (!payload?.agent) throw new Error('Choose an agent and a draft of up to 4,000 characters.')
+  }
+  const dispose = await activate(h.loam)
+  try {
+    await new Promise(r => setTimeout(r, 10))
+    const rail = h.places['rail.action'][0]
+    const overlay = h.places['app.overlay'][0]
+    rail.onclick({})
+    await new Promise(r => setTimeout(r, 10))
+    let tree = overlay.render({ sheet: h.host.state.sheet })
+    const menuBtn = walkNodes(tree, n => n.tag === 'button' && String(n.attrs.class ?? '').includes('tt-card-menu'))[0]
+    menuBtn.attrs.onclick()
+    tree = overlay.render({ sheet: h.host.state.sheet })
+    const menuItems = walkNodes(tree, n => n.tag === 'div' && n.attrs.class === 'tt-item-menu')[0].children
+    assert.doesNotThrow(() => menuItems[0].attrs.onclick())
+    assert.notEqual(h.host.state.sheet, null)
+    tree = overlay.render({ sheet: h.host.state.sheet })
+    const errText = JSON.stringify(tree)
+    assert.match(errText, /Loam 0\.2\.35 or later/)
   } finally {
     dispose()
     h.cleanup()

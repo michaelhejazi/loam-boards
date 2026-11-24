@@ -1,14 +1,37 @@
 import { owner, isOwner } from './installation.js'
 import { cardText, applyCardText, setBoardExpiry, recoverBoard } from './document.js'
 import { boardDrag } from './drag.js'
-import { boardLines, boardSections, boardItemEnd, moveBoardItem, reflowBoardQuotes, editBoard, markBoardSeen, addBoardItem } from './items.js'
+import { boardLines, boardSections, boardItemEnd, moveBoardItem, reflowBoardQuotes, editBoard, markBoardSeen, addBoardItem, formatCardThreadDraft } from './items.js'
+
+function checkboxToggleIcon(size = 17, checked = false) {
+  const NS = 'http://www.w3.org/2000/svg'
+  const root = document.createElementNS(NS, 'svg')
+  root.setAttribute('width', String(size))
+  root.setAttribute('height', String(size))
+  root.setAttribute('viewBox', '0 0 24 24')
+  root.setAttribute('fill', 'none')
+  root.setAttribute('stroke', 'currentColor')
+  root.setAttribute('stroke-width', checked ? '2.2' : '1.9')
+  root.setAttribute('stroke-linecap', 'round')
+  root.setAttribute('stroke-linejoin', 'round')
+  root.setAttribute('aria-hidden', 'true')
+  for (const [tag, attrs] of [
+    ['rect', { x: '4', y: '4', width: '16', height: '16', rx: '4.5' }],
+    ['path', { d: 'M8.5 12.2l2.4 2.4 4.8-5.1' }],
+  ]) {
+    const el = document.createElementNS(NS, tag)
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+    root.append(el)
+  }
+  return root
+}
 
 export function createEditor({
-  ui, data, thread = null, id = thread?.id ?? '__board__', title = 'Board',
-  ariaLabel = 'Thread board', mode = 'thread',
+  ui, data, commands = null, thread = null, id = thread?.id ?? '__board__', title = 'Board',
+  boardName = null, ariaLabel = 'Thread board', mode = 'thread',
   emptyBody = 'Keep a thought or a next step here.',
   read = null, write = null, openFile = null,
-  onOpen = () => {}, onClose = () => {}, dismiss, backButton,
+  onOpen = () => {}, onClose = () => {}, onStartThread = null, dismiss, backButton,
 }) {
   const { h, kept, icon, menuSurface, panelHeader, selectionMark, markdown: renderText, host } = ui
   const redraw = () => host.schedule()
@@ -16,7 +39,16 @@ export function createEditor({
   const boardId = String(id)
   const cssEscape = value => globalThis.CSS?.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, '\\$&')
   const panelSelector = `.personal-board[data-boards-id="${cssEscape(boardId)}"]`
-  const name = agentId => host.state.agents.list.find(agent => agent.id === agentId)?.name ?? agentId
+  const findAgent = value => {
+    const raw = String(value ?? '').trim().toLocaleLowerCase()
+    if (!raw) return null
+    const list = host.state?.agents?.list ?? []
+    return list.find(agent => !agent.archived && (
+      String(agent.id ?? '').toLocaleLowerCase() === raw
+      || String(agent.name ?? '').toLocaleLowerCase() === raw
+    )) ?? null
+  }
+  const name = agentId => findAgent(agentId)?.name ?? agentId
   const boardListName = section => section.name.replace(/:\s*$/, '').trim() || section.name
   const button = (text, onclick, props = {}) => h('button', { class: 'pillbtn', type: 'button', onclick, ...props }, text)
   const round = (label, glyph, action, props = {}) => button(glyph, action, { class: 'iconbtn', title: label, 'aria-label': label, ...props })
@@ -62,7 +94,9 @@ export function createEditor({
     const o = st.open
     if (!o) return
     if (focus) o.focusBoardAdd = o.addSection
-    o.addSection = null; redraw()
+    o.addSection = null
+    o.addCheckbox = false
+    redraw()
   }
 
   function rememberBoard(o, record) {
@@ -204,10 +238,42 @@ export function createEditor({
   function addItem() {
     const o = st.open
     if (!o || o.addSection == null || !quick.value.trim()) return
-    const next = addBoardItem(o.board.markdown, quick.value, o.duration ?? 0, new Date(), o.board.path, o.addSection)
+    const next = addBoardItem(o.board.markdown, quick.value, o.duration ?? 0, new Date(), o.board.path, o.addSection, { checkbox: Boolean(o.addCheckbox) })
     if (next === o.board.markdown) { o.boardError = 'This list changed. Choose a list again.'; redraw(); return }
     const submitted = quick.value, section = o.addSection
     saveBoard(next, () => { if (quick.value === submitted) quick.value = ''; if (o.addSection === section) o.focusQuick = true })
+  }
+
+  function startThreadFromCard(line, section) {
+    if (!commands?.run) return
+    const o = st.open
+    const mine = Boolean(line.author && (isOwner(line.author) || line.author.toLocaleLowerCase() === owner().name.toLocaleLowerCase()))
+    const agent = !mine && line.author ? findAgent(line.author) : null
+    const authorName = line.author ? (mine ? owner().name : (agent?.name ?? line.author)) : ''
+    const resolvedBoard = typeof boardName === 'function'
+      ? boardName()
+      : (boardName ?? (thread?.title ? `${thread.title} — board` : title))
+    const draftText = formatCardThreadDraft(line, {
+      boardName: resolvedBoard,
+      sectionName: section ? boardListName(section) : '',
+      sectionKey: section?.key ?? '',
+      authorName,
+    })
+    if (o) { o.boardMenu = null; o.menuPage = null; o.boardError = null }
+    finishBoardEdit()
+    drag.cancel()
+    if (mode === 'modal') onStartThread?.()
+    try {
+      commands.run('chat.draft', agent ? { agent: agent.id, text: draftText } : { text: draftText })
+      if (mode !== 'modal') onStartThread?.()
+    } catch {
+      if (o) {
+        o.boardError = agent
+          ? 'Could not start a thread from this card.'
+          : 'Starting a thread without an agent needs Loam 0.2.35 or later.'
+        redraw()
+      }
+    }
   }
 
   async function moveItem(index, section, before = null, base = st.open?.board.markdown) {
@@ -249,7 +315,7 @@ export function createEditor({
       const checked = o.pendingTick?.index === line.index ? o.pendingTick.checked : line.checked
       return h('label', { class: 'tt-tick' }, h('input', { type: 'checkbox', checked, disabled: busy, 'aria-label': `Complete ${line.text}`, onchange: () => tickItem(line) }), selectionMark({ chosen: checked }))
     }
-    const item = (l) => {
+    const item = (l, section) => {
       const editing = o.editing && o.inlineIndex === l.index
       const mine = l.author && (isOwner(l.author) || l.author.toLocaleLowerCase() === owner().name.toLocaleLowerCase())
       const meta = [l.date && dateLabel(l.date), l.author && (mine ? 'You' : name(l.author)), l.until && 'expires ' + dateLabel(l.until)].filter(Boolean)
@@ -272,16 +338,35 @@ export function createEditor({
         o.boardMenu === l.index ? menuSurface(h('div', { class: 'tt-item-menu' },
           o.menuPage === 'move' ? lists.map(s => button(boardListName(s), () => moveItem(l.index, s.key), { class: 'pillbtn content-mark' })) :
           o.menuPage === 'expiry' ? h('label', { class: 'tt-expiry' }, 'Expires on', h('input', { type: 'date', value: l.until, onchange: e => setExpiry(e.target.value) })) :
-          [button(l.until ? 'Change expiry' : 'Set expiry', () => { o.menuPage = 'expiry'; redraw() }),
+          [commands?.run ? button('Start a thread', () => startThreadFromCard(l, section)) : null,
+            button(l.checked !== null ? 'Remove checkbox' : 'Add checkbox', () => {
+              closeMenu()
+              saveBoard(editBoard(o.board.markdown, l.index, l.checked !== null ? 'remove-checkbox' : 'add-checkbox'))
+            }),
+            button(l.until ? 'Change expiry' : 'Set expiry', () => { o.menuPage = 'expiry'; redraw() }),
             l.until ? button('Clear expiry', () => setExpiry('')) : null,
             button('Move to…', () => { o.menuPage = 'move'; redraw() }),
             button('Delete item', () => { closeMenu(); removeItem(l.index) }, { class: 'pillbtn tt-danger' })]),
           { title: o.menuPage === 'move' ? 'Move to section' : o.menuPage === 'expiry' ? 'Set expiry' : 'Item actions', width: 280, close: closeMenu }) : null))
     }
-    const quickForm = () => h('form', { class: 'tt-board-add', key: 'board-add', onsubmit: (e) => { e.preventDefault(); addItem() }, onfocusout: (e) => {
-      if (!e.currentTarget.contains(e.relatedTarget)) closeQuick()
-    } }, kept(quick), h('div', { class: 'tt-board-add-foot' },
-      h('div', { class: 'tt-durations', role: 'group', 'aria-label': 'Keep board item for' }, ...[[0, 'Stays'], [1, '1 day'], [7, '1 week'], [14, '2 weeks']].map(([n, label]) => button(label, () => { o.duration = n; o.focusQuick = true; redraw() }, { class: 'pillbtn content-mark', 'aria-pressed': String(Number(o.duration ?? 0) === n) }))), button('Add', addItem, { class: 'pillbtn content-mark', disabled: busy })))
+    const quickForm = () => {
+      const withBox = Boolean(o.addCheckbox)
+      return h('form', { class: 'tt-board-add', key: 'board-add', onsubmit: (e) => { e.preventDefault(); addItem() }, onfocusout: (e) => {
+        if (!o.boardBusy && !e.currentTarget.contains(e.relatedTarget)) closeQuick()
+      } },
+        h('div', { class: 'tt-quick-row' },
+          kept(quick),
+          button(checkboxToggleIcon(17, withBox), () => { o.addCheckbox = !o.addCheckbox; o.focusQuick = true; redraw() }, {
+            class: 'tt-quick-check',
+            'aria-label': 'Include checkbox',
+            'aria-pressed': String(withBox),
+            title: withBox ? 'Checkbox on — click for a plain note' : 'Add a checkbox',
+            'data-boards-checkbox-toggle': 'true',
+            disabled: busy,
+          })),
+        h('div', { class: 'tt-board-add-foot' },
+          h('div', { class: 'tt-durations', role: 'group', 'aria-label': 'Keep board item for' }, ...[[0, 'Stays'], [1, '1 day'], [7, '1 week'], [14, '2 weeks']].map(([n, label]) => button(label, () => { o.duration = n; o.focusQuick = true; redraw() }, { class: 'pillbtn content-mark', 'aria-pressed': String(Number(o.duration ?? 0) === n) }))), button('Add', addItem, { class: 'pillbtn content-mark', disabled: busy })))
+    }
     const listAdd = (section) => {
       const sectionName = boardListName(section)
       const label = 'Add a note'
@@ -289,7 +374,7 @@ export function createEditor({
         o.addSection === section.key ? quickForm() : button([icon.plus(15), label], () => {
           quick.setAttribute('placeholder', label)
           quick.setAttribute('aria-label', `New item in ${sectionName}`)
-          o.addSection = section.key; o.focusQuick = true; o.boardMenu = null; redraw()
+          o.addSection = section.key; o.addCheckbox = false; o.focusQuick = true; o.boardMenu = null; redraw()
         }, { class: 'tt-list-add', disabled: busy, 'aria-label': label, 'title': `Add a note to ${sectionName}`, 'data-add-section': section.key, 'aria-expanded': 'false' }))
     }
     const description = (section, block) => {
@@ -315,7 +400,7 @@ export function createEditor({
       const { items, group, level } = section, closed = o.collapsed.has(section.key)
       const sectionName = boardListName(section)
       const heading = `h${Math.min(6, Math.max(3, level + 2))}`
-      const blocks = () => section.blocks.map(l => l.item ? item(l) : l.text.trim() ? description(section, l) : null)
+      const blocks = () => section.blocks.map(l => l.item ? item(l, section) : l.text.trim() ? description(section, l) : null)
       if (group) {
         const renderedBlocks = blocks().filter(Boolean)
         if (section.key === 'top' && sectionName.toLowerCase() === title.toLowerCase() && !renderedBlocks.length) return null

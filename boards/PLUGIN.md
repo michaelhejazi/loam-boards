@@ -1,7 +1,7 @@
 ---
 id: boards
 name: Boards
-version: 0.2.0
+version: 0.3.0
 author: Michael Hejazi
 api: 0
 kind: [extension]
@@ -59,16 +59,17 @@ contributes:
         setting: chat_board
         in: ["on"]
 ---
-Keep notes and next steps as cards or Markdown — beside each thread, on one shared **Chat board** for quick thoughts, or both. Add a note under a heading, check it off, move it to another list, or give it an expiry date. Choose **Open in Files** to edit the same Markdown.
+Keep notes and next steps as cards or Markdown — beside each thread, on one shared **Chat board** for quick thoughts, or both. Add a plain note or toggle a checkbox when it is a task, start a new thread directly from any card, move it to another list, or give it an expiry date. Choose **Open in Files** to edit the same Markdown.
 
 ## What you can do
 
 - **Chat board:** Open one shared board from the side rail on desktop or the top bar on phone — from the threads list or inside any thread — and close it right back to where you were.
 - **Thread boards:** Open **Board** in any thread’s header for notes tied to that conversation.
+- **Card actions:** From any card’s menu, choose **Start a thread** to open a new unsent chat draft quoting the card, or **Add checkbox** / **Remove checkbox** to switch between a plain card and a checkable task.
 - **Your choice:** Turn **Thread boards** and **Chat board** on or off independently below. Turning either off hides its controls and leaves every board file untouched.
 
 ---
 
 ## Technical details
 
-Thread boards read and save each thread’s Markdown using the revision returned when opened. The Chat board is an ordinary vault Markdown file at `Boards/Chat board.md`, created on first open with `# Chat board` and standard vault frontmatter, and read/saved with revision checks through Files. Conflicting edits stay in the tab for recovery. Scheduled cleanup scripts (`expiry.py`) run on the server to remove expired items from thread boards and the Chat board, and aged dated lines from the General board. Requires Loam 0.2.33 or later (for `rail.action`, `thread.list.action`, settings switches, and conditional `agent.prompt`, alongside `thread.file`, thread header controls, and Markdown editing slots).
+Thread boards read and save each thread’s Markdown using the revision returned when opened. The Chat board is an ordinary vault Markdown file at `Boards/Chat board.md`, created on first open with `# Chat board` and standard vault frontmatter, and read/saved with revision checks through Files. Conflicting edits stay in the tab for recovery. Scheduled cleanup scripts (`expiry.py`) run on the server to remove expired items from thread boards and the Chat board, and aged dated lines from the General board. Requires Loam 0.2.35 or later (for optional-agent `chat.draft`, alongside `rail.action`, `thread.list.action`, settings switches, conditional `agent.prompt`, `thread.file`, thread header controls, and Markdown editing slots).

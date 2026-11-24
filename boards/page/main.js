@@ -64,7 +64,7 @@ export async function activate(loam) {
   const chatBoardOn = () => prefs.chat_board !== 'off'
   const isChatBoardOpen = () => host?.state?.sheet?.kind === CHAT_BOARD_SHEET
   let disposed = false
-  let navigatingToFile = false
+  let skipRestoreFocus = false
 
   function applySettings(values) {
     if (!values || typeof values !== 'object') return
@@ -99,11 +99,13 @@ export async function activate(loam) {
   const chatEditor = createEditor({
     id: '__chat_board__',
     title: 'Chat board',
+    boardName: 'Chat board',
     ariaLabel: 'Chat board',
     mode: 'modal',
     emptyBody: 'Jot a quick thought or next step here.',
     ui: loam.ui,
     data: loam.data,
+    commands: loam.commands,
     read: async ({ create = false } = {}) => {
       const path = installation().chatBoard
       try {
@@ -121,7 +123,7 @@ export async function activate(loam) {
       return { path, markdown: res.text ?? markdown, revision: res.revision ?? null }
     },
     openFile: path => {
-      navigatingToFile = true
+      skipRestoreFocus = true
       const item = { kind: 'file', root: 'vault', path, mode: 'edit' }
       if (host.panels.available()) {
         host.closeSheet()
@@ -131,6 +133,7 @@ export async function activate(loam) {
         host.panels.openMain(inThread ? { ...item, returnThread: true } : item)
       }
     },
+    onStartThread() { skipRestoreFocus = true },
     onOpen() { active.add(chatEditor) },
     onClose() { active.delete(chatEditor) },
     dismiss: () => { if (isChatBoardOpen()) host.closeSheet(); else chatEditor.close() },
@@ -178,7 +181,15 @@ export async function activate(loam) {
     const { thread, state } = context
     let entry = editors.get(state)
     if (!entry) {
-      entry = createEditor({ thread, ui: loam.ui, data: loam.data,
+      entry = createEditor({ thread, ui: loam.ui, data: loam.data, commands: loam.commands,
+        boardName: () => {
+          const title = state?.thread?.title || thread?.title
+          return title ? `${title} — board` : 'Board'
+        },
+        onStartThread() {
+          entry.close({ restoreFocus: false })
+          if (context.panel === 'side') context.selectView?.(null, { traverse: false })
+        },
         onOpen() { active.add(entry) },
         onClose() { active.delete(entry) },
         dismiss: options => context.selectView(null, options), backButton: context.backButton,
@@ -215,8 +226,8 @@ export async function activate(loam) {
   })
   loam.events.on('sheet.changing', ({ previous, sheet }) => {
     if (previous?.kind === CHAT_BOARD_SHEET && sheet?.kind !== CHAT_BOARD_SHEET) {
-      chatEditor.close({ restoreFocus: !navigatingToFile && !sheet })
-      navigatingToFile = false
+      chatEditor.close({ restoreFocus: !skipRestoreFocus && !sheet })
+      skipRestoreFocus = false
     }
   })
   loam.events.on('page.visible', () => {

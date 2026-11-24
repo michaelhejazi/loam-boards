@@ -44,6 +44,8 @@ export function editBoard(markdown, index, action) {
   if (!item?.item) return markdown
   if (action === 'remove') lines[index].raw = ''
   if (action === 'tick' && item.checked !== null) lines[index].raw = item.raw.replace(/^(\s*[-*+]\s+\[)[ xX](\])/, `$1${item.checked ? ' ' : 'x'}$2`)
+  if (action === 'add-checkbox' && item.checked === null) lines[index].raw = item.raw.replace(/^(\s*[-*+]\s+)/, '$1[ ] ')
+  if (action === 'remove-checkbox' && item.checked !== null) lines[index].raw = item.raw.replace(/^(\s*[-*+]\s+)\[[ xX]\]\s+/, '$1')
   if (action === 'seen') lines[index].raw = item.raw.replace(/<!--([^<>]*)-->(?=\s*$)/, (_, content) => {
     const fields = content.split('·')
     const at = fields.findIndex((s) => s.trim() === 'new')
@@ -125,17 +127,42 @@ export function reflowBoardQuotes(text) {
 export function markBoardSeen(markdown) {
   return boardLines(markdown).filter((l) => l.unseen).reduce((text, line) => editBoard(text, line.index, 'seen'), markdown)
 }
-export function addBoardItem(markdown, text, days = 0, now = new Date(), path = '', destination = null) {
+export function addBoardItem(markdown, text, days = 0, now = new Date(), path = '', destination = null, { checkbox = false } = {}) {
   const clean = text.trim().replace(/\r?\n/g, ' ')
   if (!clean) return markdown
   const until = new Date(now); until.setUTCDate(until.getUTCDate() + Number(days))
   const eol = markdown.includes('\r\n') ? '\r\n' : '\n'
   const section = destination === null ? null : boardSections(markdown).find((s) => s.key === destination)
   if (destination !== null && !section) return markdown
-  const marker = path === installation().generalBoard && !Number(days) ? '- ' : '- [ ] '
+  const marker = checkbox ? '- [ ] ' : '- '
   const author = owner().name.replace(/-->|[\r\n]/g, ' ')
   const expiry = Number(days) ? ` · until ${until.toISOString().slice(0, 10)}` : ''
   const raw = `${marker}${now.toISOString().slice(0, 10)} · ${clean} <!-- ${author}${expiry} -->${eol}`
   return boardInsert(markdown, section ? boardItemEnd(section) : boardLines(markdown).length, raw)
+}
+
+export function formatCardThreadDraft(item, { boardName = 'Board', sectionName = '', sectionKey = '', authorName = '' } = {}) {
+  const body = String(item?.text ?? '').trim()
+  const dateText = item?.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date)
+    ? new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(item.date + 'T00:00:00Z'))
+    : ''
+  const cleanBoard = String(boardName ?? '').trim()
+  const cleanSection = String(sectionName ?? '').trim()
+  const showSection = Boolean(
+    cleanSection
+    && sectionKey !== 'top'
+    && cleanSection.toLocaleLowerCase() !== cleanBoard.toLocaleLowerCase()
+    && cleanSection.toLocaleLowerCase() !== 'board',
+  )
+  const source = [cleanBoard, showSection ? cleanSection : ''].filter(Boolean).join(' · ')
+  const meta = [String(authorName ?? '').trim(), dateText, source].filter(Boolean)
+  const attribution = meta.length ? `> — ${meta.join(' · ')}` : ''
+  const suffix = attribution ? `\n${attribution}\n\n` : '\n\n'
+  const maxBody = Math.max(0, 4000 - suffix.length)
+  let quoted = body.split(/\r?\n/).map(line => `> ${line}`).join('\n')
+  if (quoted.length > maxBody) {
+    quoted = maxBody > 1 ? quoted.slice(0, maxBody - 1).trimEnd() + '…' : quoted.slice(0, maxBody)
+  }
+  return `${quoted}${suffix}`
 }
 

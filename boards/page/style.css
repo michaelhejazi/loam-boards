@@ -27,8 +27,17 @@
 .tt-seen-strip.cleared { display:none; }
 .tt-mark-seen { font:inherit; font-weight:600; line-height:1.5; min-height:44px; align-self:auto; }
 .tt-board-add { padding:8px 0 12px; }
-.tt-quick { width:100%; min-height:44px; border:0; border-radius:14px; padding:12px; background:var(--paper-card); color:var(--paper-ink); font:14px/1.6 var(--font-body); }
+.tt-quick-row { display:flex; align-items:center; gap:4px; border-radius:14px; background:var(--paper-card); padding-right:4px; }
+.tt-quick-row:focus-within { box-shadow:inset 0 0 0 2px var(--signal-crema); }
+.tt-quick { flex:1; min-width:0; min-height:44px; border:0; border-radius:14px; padding:12px 4px 12px 12px; background:transparent; color:var(--paper-ink); font:14px/1.6 var(--font-body); outline:none; }
+.tt-quick:focus-visible { outline:none; box-shadow:none; }
 .tt-quick::placeholder { color:var(--paper-ink-3); }
+.tt-quick-check { flex:none; width:36px; height:36px; border:0; border-radius:10px; padding:0; display:grid; place-items:center; background:transparent; color:var(--paper-ink-3); cursor:pointer; transition:background 140ms ease,color 140ms ease,transform 120ms ease; }
+.tt-quick-check:hover { background:var(--paper-hover-alpha); color:var(--paper-ink); }
+.tt-quick-check:active { transform:scale(.94); }
+.tt-quick-check:focus-visible { outline:2px solid var(--signal-crema); outline-offset:2px; }
+.tt-quick-check[aria-pressed="true"] { background:var(--latte-espresso); color:var(--latte-espresso-ink); }
+.tt-quick-check[aria-pressed="true"]:hover { opacity:.92; }
 .tt-board-add-foot { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px; }
 .tt-board-add-foot > button { margin-left:auto; font-family:var(--font-body); font-size:13px; }
 .tt-durations { display:flex; flex-wrap:wrap; gap:4px; }
@@ -77,14 +86,17 @@
   .tt-board-modal-dialog { padding:8px; align-items:stretch; }
   .tt-board.tt-board-modal { inset:auto; width:100%; height:100%; min-height:0; max-height:none; }
   .tt-list-add,.tt-description > summary,.tt-durations .pillbtn,.tt-board-add-foot > button { min-height:44px; min-width:44px; }
+  .tt-quick-row { padding-right:2px; }
+  .tt-quick-check { width:40px; height:40px; border-radius:11px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .tt-board,.tt-board-scrim { animation:none; }
-  .tt-board-item.removing,.tt-list-add { transition:none; }
+  .tt-board-item.removing,.tt-list-add,.tt-quick-check { transition:none; }
 }
 
 :root[data-look="foundry"] .personal-board { border-radius:var(--radius-xl); }
-:root[data-look="foundry"] .personal-board .tt-board-item { border-radius:var(--radius-md); }
+:root[data-look="foundry"] .personal-board .tt-board-item,
+:root[data-look="foundry"] .personal-board .tt-quick-row { border-radius:var(--radius-md); }
 
 [data-boards-thread].iconbtn,
 [data-boards-chat].iconbtn { position:relative; }

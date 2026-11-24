@@ -17,7 +17,7 @@ CHAT_BOARD_NAME = "Chat board.md"
 
 def item_meta(line: str) -> list[str]:
     match = ITEM_META_RE.search(line)
-    if not match or not line.lstrip().startswith(("- ", "* ")):
+    if not match or not line.lstrip().startswith(("- ", "* ", "+ ")):
         return []
     return [part.strip() for part in match.group(1).split("·")]
 

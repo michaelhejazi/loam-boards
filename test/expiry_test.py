@@ -49,6 +49,8 @@ class ExpiryTest(unittest.TestCase):
             chat_board = Path(tmp) / "Chat board.md"
             initial = (
                 "---\ncreated_by: owner\n---\n# Chat board\n\n"
+                "- 2030-04-20 · Keep plain <!-- Scout · new · until 2030-04-21 -->\n"
+                "- 2030-04-10 · Expired plain <!-- Scout · new · until 2030-04-20 -->\n"
                 "- [ ] Keep me <!-- until 2030-04-21 -->\n"
                 "- [ ] Expired thought <!-- until 2030-04-20 -->\n"
                 "  continuation line\n"
@@ -57,14 +59,15 @@ class ExpiryTest(unittest.TestCase):
             chat_board.write_text(initial, encoding="utf-8")
 
             revs = _FakeRevisions()
-            self.assertEqual(sweep_file(chat_board, today, dry_run=True, revisions=revs), 2)
+            self.assertEqual(sweep_file(chat_board, today, dry_run=True, revisions=revs), 3)
             self.assertEqual(revs.writes, [])
             self.assertEqual(chat_board.read_text(encoding="utf-8"), initial)
 
-            self.assertEqual(sweep_file(chat_board, today, dry_run=False, revisions=revs), 2)
+            self.assertEqual(sweep_file(chat_board, today, dry_run=False, revisions=revs), 3)
             self.assertEqual(len(revs.writes), 1)
             expected = (
                 "---\ncreated_by: owner\n---\n# Chat board\n\n"
+                "- 2030-04-20 · Keep plain <!-- Scout · new · until 2030-04-21 -->\n"
                 "- [ ] Keep me <!-- until 2030-04-21 -->\n"
                 "- [ ] Undated note\n"
             )

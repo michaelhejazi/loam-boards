@@ -2,12 +2,20 @@
 
 Keep notes and next steps as cards or Markdown — beside each thread, on one shared **Chat board** for quick thoughts, or both.
 
-- **Thread boards:** Open **Board** (or **Thread board** when both are on) in a thread’s header to view cards tied to that conversation. Choose **Add a note**, select a card’s text to edit it, or use its menu to move it to another section, set an expiry date, or remove it.
+- **Thread boards:** Open **Board** (or **Thread board** when both are on) in a thread’s header to view cards tied to that conversation. Choose **Add a note** (plain by default, with a small checkbox toggle when it’s a task), select a card’s text to edit it, or use its menu to start a new thread from the card, add or remove its checkbox, move it to another section, set an expiry date, or remove it.
 - **Chat board:** Open one shared board from anywhere in Chats — from the side rail on desktop or the top bar on phone (from the threads list or inside any thread) — as an overlay over what you are looking at. Closing it puts you right back where you were.
 - **Independent switches:** Turn **Thread boards** and **Chat board** on or off separately in **Settings → Plugins → Boards**. Turning either off hides its controls and leaves every board file untouched; turning it back on brings everything back. Agent guidance follows the active switches automatically.
 - **Open in Files:** Opens the underlying Markdown file (`Boards/<Thread> — board.md` or `Boards/Chat board.md`) in Files.
 
-Requires Loam 0.2.33 or later (which provides `rail.action`, `thread.list.action`, switch settings, and conditional `agent.prompt`, alongside `thread.file`, thread header controls, and Markdown editing slots). Each thread owns its file; `Boards/Chat board.md` is created on first open with `# Chat board` and standard vault frontmatter. The hourly schedule removes cards after their explicit expiry date across thread boards and the Chat board. General also clears dated entries older than 14 days on a daily schedule. Imported historical lines can be retained by their content digest in the plugin data folder. The card editor and file projection are adapted from Loam under the GNU Affero General Public License, version 3. See LICENSE at the repository root.
+Requires Loam 0.2.35 or later (which provides optional-agent `chat.draft` alongside `rail.action`, `thread.list.action`, switch settings, conditional `agent.prompt`, `thread.file`, thread header controls, and Markdown editing slots). Each thread owns its file; `Boards/Chat board.md` is created on first open with `# Chat board` and standard vault frontmatter. The hourly schedule removes cards after their explicit expiry date across thread boards and the Chat board. General also clears dated entries older than 14 days on a daily schedule. Imported historical lines can be retained by their content digest in the plugin data folder. The card editor and file projection are adapted from Loam under the GNU Affero General Public License, version 3. See LICENSE at the repository root.
+
+## What changed in 0.3.0
+
+- Adds **Start a thread** as the first action in every card’s menu (both Chat board and thread boards). Opens a new thread with an unsent composer draft quoting the card’s full text (keeping links), creator, date, and board/section — opening with that agent when the card was written by a persona, or with no pre-selected agent for your own or other cards.
+- Makes checkboxes optional per card and **off by default**: new notes write plain `- ` bullets unless the compact checkbox toggle beside the **Add a note** input is switched on.
+- Adds **Add checkbox** / **Remove checkbox** to every card’s actions menu (removing a checkbox from a checked card turns it into a plain card without deleting anything).
+- Updates agent instructions (`agent.md` and `agent-chat.md`) so personas add plain `- ` items unless an item is a task to tick off.
+- Requires Loam 0.2.35 or later (no new permissions or reach).
 
 ## What changed in 0.2.0
 
